@@ -20,6 +20,7 @@
 package namespaces
 
 import (
+	"os"
 	"os/exec"
 	"syscall"
 )
@@ -27,3 +28,18 @@ import (
 // TODO: design your own exported function signature(s) here.
 // Likely need something like a constructor that returns a configured
 // *exec.Cmd, given a target command and args, with Cloneflags set.
+func Namespace(targetCmd string, targetArgs []string) (*exec.Cmd, error) {
+	// locked CLI interface: myContainer run <target command>
+	childArgs := append([]string{"child", targetCmd}, targetArgs...)
+	cmd := exec.Command("/proc/self/exe", childArgs...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWPID | syscall.CLONE_NEWUTS, // the ONE line that requests new namespaces
+	}
+
+	err := cmd.Start()
+	return cmd, err
+
+}
