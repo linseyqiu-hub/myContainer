@@ -36,10 +36,14 @@ func Namespace(targetCmd string, targetArgs []string) (*exec.Cmd, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWPID | syscall.CLONE_NEWUTS, // the ONE line that requests new namespaces
+		Cloneflags: syscall.CLONE_NEWPID | syscall.CLONE_NEWUTS | syscall.CLONE_NEWNS, // the ONE line that requests new namespaces
 	}
 
 	err := cmd.Start()
 	return cmd, err
 
+}
+
+func SetHostname(hostname string) error {
+	return syscall.Sethostname([]byte(hostname))
 }

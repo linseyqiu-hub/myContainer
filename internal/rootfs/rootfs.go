@@ -12,7 +12,7 @@
 //     instead of just remapping the visible path, then unmount the
 //     old root so it's unreachable
 //   - Remount /proc inside the new root so `ps` behaves correctly
-//     from inside the container (this is what unblocks the "real ps"
+//     from inside the container (this is what unblocks the "real ps"9	eazsfxcv
 //     verification you deferred from Day 1)
 //
 // Things to design yourself:
@@ -25,8 +25,24 @@
 package rootfs
 
 import (
+	errorHandlers "mycontainer/utils"
 	"os"
 	"syscall"
 )
 
 // TODO: design your own exported function signature(s) here.
+func RootFSChroot(path string) error {
+	err := syscall.Chroot(path)
+	syscall.Chdir("/")
+	return err
+}
+
+func RootFSPivot(path string) error {
+
+	return errorHandlers.RunSteps(
+		func() error { return syscall.PivotRoot(path, path+"/.oldroot") },
+		func() error { return syscall.Chdir("/") },
+		func() error { return syscall.Unmount(".oldroot", syscall.MNT_DETACH) },
+		func() error { return os.Remove(".oldroot") },
+	)
+}
