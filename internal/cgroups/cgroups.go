@@ -25,7 +25,7 @@
 package cgroups
 
 import (
-	errorHandlers "mycontainer/utils"
+	errorHandlers "mycontainer/utils/errorHandlers"
 	"os"
 	"strconv"
 )
@@ -37,23 +37,25 @@ func Setup(id string, memMax string) error {
 	file := path + "/memory.max"
 	return errorHandlers.RunSteps(
 		func() error { return os.MkdirAll(path, 0755) },
-		func() error { return os.WriteFile(file, []byte(memMax), 0644) },
+		func() error {
+			if len(memMax) == 0 {
+				return nil
+			}
+			return os.WriteFile(file, []byte(memMax), 0644)
+		},
 	)
 }
 
 func AddProcess(id string, pid int) error {
 	// write pid into /sys/fs/cgroup/<id>/cgroup.procs
 	path := "/sys/fs/cgroup/" + id + "/cgroup.procs"
-	return errorHandlers.RunSteps(
-		func() error { return os.WriteFile(path, []byte(strconv.Itoa(pid)), 0644) },
-	)
+	return os.WriteFile(path, []byte(strconv.Itoa(pid)), 0644)
+
 }
 
 func Cleanup(id string) error {
 	// os.Remove /sys/fs/cgroup/<id>  (must be empty of members — safe once process has exited)
 	path := "/sys/fs/cgroup/" + id
-	return errorHandlers.RunSteps(
-		func() error { return os.RemoveAll(path) },
-	)
+	return os.Remove(path)
 
 }

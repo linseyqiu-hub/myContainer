@@ -25,7 +25,7 @@
 package rootfs
 
 import (
-	errorHandlers "mycontainer/utils"
+	"mycontainer/utils/errorHandlers"
 	"os"
 	"syscall"
 )
