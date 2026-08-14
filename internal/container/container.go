@@ -24,6 +24,7 @@ package container
 
 import (
 	"flag"
+	"fmt"
 	"mycontainer/internal/cgroups"
 	"mycontainer/internal/namespaces"
 	"mycontainer/internal/rootfs"
@@ -31,6 +32,7 @@ import (
 	"mycontainer/utils/errorHandlers"
 	"mycontainer/utils/types"
 	"os"
+	"os/exec"
 	"syscall"
 )
 
@@ -39,8 +41,9 @@ import (
 // TODO: design your own exported entrypoint and any config struct here.
 
 func preflightParent(config *types.Config) error {
+	fmt.Println("=========preflightParent start==========")
 	memMax := flag.String("mem", "", "...")
-	hostName := flag.String("mem", "", "...")
+	hostName := flag.String("hostname", "", "...")
 	flag.Parse()
 	remaining := flag.Args()
 	targetCmd := remaining[1]
@@ -69,6 +72,7 @@ func preflightParent(config *types.Config) error {
 
 // ["/proc/self/exe", "child", <id>, <hostname>, <memmax>, <targetCmd>, <targetArg0>, <targetArg1>, <targetArg2>,...<targetArgn>]
 func preflightChild(config *types.Config) {
+	fmt.Println("=========preflightChild start==========")
 	config.Child = 1
 	config.ID = os.Args[2]
 	config.Hostname = os.Args[3]
@@ -78,6 +82,7 @@ func preflightChild(config *types.Config) {
 }
 
 func preflight(config *types.Config) error {
+	fmt.Println("=========preflight start==========")
 	if os.Args[1] == "child" {
 		preflightChild(config)
 		return nil
@@ -87,6 +92,7 @@ func preflight(config *types.Config) error {
 }
 
 func Parent(config *types.Config) error {
+	fmt.Println("=========Parent start==========")
 
 	cmd, w, errNS := namespaces.Namespace(config)
 
@@ -105,22 +111,43 @@ func Parent(config *types.Config) error {
 		},
 	)
 	cmd.Wait()
+	fmt.Println("============clean up=================")
 	cgroups.Cleanup(id)
 	return nil
 }
 
 func Child(config *types.Config) error {
+	fmt.Println("=========Child start==========")
 	return errorHandlers.RunSteps(
-		func() error { return namespaces.SetHostname(config.Hostname) },
-		func() error { return rootfs.RootFSPivot("testdata/rootfs") },
 		func() error {
+			fmt.Println("===========set hostname=============")
+			return namespaces.SetHostname(config.Hostname)
+		},
+		func() error {
+			fmt.Println("===========set rootfs=============")
+			return rootfs.RootFSPivot("./testdata/rootfs")
+		},
+		func() error {
+			fmt.Println("===========proc remount=============")
+			return rootfs.ProcRemount()
+		},
+
+		func() error {
+			fmt.Println("===========read pipe=============")
 			pipeFromParent := os.NewFile(3, "pipe")
 			buf := make([]byte, 1)
 			_, err := pipeFromParent.Read(buf)
 			return err
 		},
 		func() error {
-			return syscall.Exec(config.TargetCmd, config.TargetArgs, os.Environ())
+			path, err := exec.LookPath(config.TargetCmd)
+			if err != nil {
+				fmt.Println("===========LookPath went wrong=============")
+				return err
+			}
+			fmt.Println("===========exec target command=============")
+			argv := append([]string{config.TargetCmd}, config.TargetArgs...)
+			return syscall.Exec(path, argv, os.Environ())
 		},
 	)
 }

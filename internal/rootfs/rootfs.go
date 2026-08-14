@@ -25,6 +25,7 @@
 package rootfs
 
 import (
+	"fmt"
 	"mycontainer/utils/errorHandlers"
 	"os"
 	"syscall"
@@ -33,6 +34,7 @@ import (
 // TODO: design your own exported function signature(s) here.
 func RootFSChroot(path string) error {
 	err := syscall.Chroot(path)
+
 	syscall.Chdir("/")
 	return err
 }
@@ -40,9 +42,30 @@ func RootFSChroot(path string) error {
 func RootFSPivot(path string) error {
 
 	return errorHandlers.RunSteps(
-		func() error { return syscall.PivotRoot(path, path+"/.oldroot") },
-		func() error { return syscall.Chdir("/") },
-		func() error { return syscall.Unmount(".oldroot", syscall.MNT_DETACH) },
-		func() error { return os.Remove(".oldroot") },
+		func() error { return os.MkdirAll(path+"/.oldroot", 0700) },
+		func() error { return syscall.Mount(path, path, "", syscall.MS_BIND, "") },
+		func() error {
+			fmt.Println("=========Pivot root==============")
+			return syscall.PivotRoot(path, path+"/.oldroot")
+		},
+		func() error {
+			fmt.Println("=========Chdir==============")
+			return syscall.Chdir("/")
+		},
+		func() error {
+			fmt.Println("=========Unmount==============")
+			return syscall.Unmount(".oldroot", syscall.MNT_DETACH)
+		},
+		func() error {
+			fmt.Println("=========Remove old root==============")
+			return os.Remove(".oldroot")
+		},
+	)
+}
+
+func ProcRemount() error {
+	return errorHandlers.RunSteps(
+		func() error { return os.MkdirAll("/proc", 0755) },
+		func() error { return syscall.Mount("proc", "/proc", "proc", 0, "") },
 	)
 }

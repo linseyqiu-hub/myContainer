@@ -13,6 +13,7 @@ package main
 
 import (
 	"fmt"
+	"mycontainer/internal/container"
 	"os"
 )
 
@@ -20,6 +21,13 @@ func main() {
 	// TODO: parse os.Args, dispatch to internal/container.
 	// You'll import "mycontainer/internal/container" once you've
 	// designed its exported entrypoint.
-	fmt.Println("mycontainer: not yet implemented")
-	os.Exit(1)
+
+	err := container.Container()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	os.Exit(0)
+
 }

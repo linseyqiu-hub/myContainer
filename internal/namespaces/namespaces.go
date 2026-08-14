@@ -20,6 +20,7 @@
 package namespaces
 
 import (
+	"mycontainer/utils/types"
 	"os"
 	"os/exec"
 	"syscall"
@@ -28,19 +29,24 @@ import (
 // TODO: design your own exported function signature(s) here.
 // Likely need something like a constructor that returns a configured
 // *exec.Cmd, given a target command and args, with Cloneflags set.
-func Namespace(targetCmd string, targetArgs []string) (*exec.Cmd, error) {
+func Namespace(config *types.Config) (*exec.Cmd, *os.File, error) {
 	// locked CLI interface: myContainer run <target command>
-	childArgs := append([]string{"child", targetCmd}, targetArgs...)
+	childArgs := append([]string{"child", config.ID, config.Hostname, config.MemMax, config.TargetCmd}, config.TargetArgs...)
 	cmd := exec.Command("/proc/self/exe", childArgs...)
+	// ["/proc/self/exe", "child", <id>, <hostname>, <memmax>, <targetCmd>, <targetArg0>, <targetArg1>, <targetArg2>,...<targetArgn>]
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWPID | syscall.CLONE_NEWUTS | syscall.CLONE_NEWNS, // the ONE line that requests new namespaces
 	}
-
+	r, w, errPipe := os.Pipe()
+	if errPipe != nil {
+		return nil, nil, errPipe
+	}
+	cmd.ExtraFiles = []*os.File{r}
 	err := cmd.Start()
-	return cmd, err
+	return cmd, w, err
 
 }
 
